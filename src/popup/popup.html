@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Blue Pencil</title>
+  <link rel="stylesheet" href="../ui/pages.css">
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <header class="top">
+    <img src="../../icons/icon32.png" alt="" width="24" height="24">
+    <div class="grow">
+      <strong>Blue Pencil</strong>
+    </div>
+    <label class="switch" title="Turn Blue Pencil on or off">
+      <input type="checkbox" id="enabled"><span></span>
+    </label>
+  </header>
+
+  <div class="status" id="status">
+    <span class="dot wait" id="dot"></span>
+    <div class="grow">
+      <div id="status-text">Checking Ollama…</div>
+      <div class="hint" id="status-hint"></div>
+    </div>
+  </div>
+
+  <div class="block">
+    <label class="name" for="model">Model</label>
+    <select id="model"></select>
+  </div>
+
+  <div class="block site">
+    <div class="grow">
+      <span class="name" id="site-name">This site</span>
+      <span class="hint" id="site-hint">Suggestions are on here.</span>
+    </div>
+    <label class="switch" title="Turn Blue Pencil on or off for this site">
+      <input type="checkbox" id="site-enabled"><span></span>
+    </label>
+  </div>
+
+  <div class="actions">
+    <button class="primary grow" id="check">Check the field I am in</button>
+    <button id="settings">Settings</button>
+  </div>
+
+  <footer class="bottom">
+    <span><kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>B</kbd> checks the focused field</span>
+  </footer>
+
+  <script src="../lib/defaults.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>

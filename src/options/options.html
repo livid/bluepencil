@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Blue Pencil settings</title>
+  <link rel="stylesheet" href="../ui/pages.css">
+  <link rel="stylesheet" href="options.css">
+</head>
+<body>
+  <div class="wrap">
+    <header class="head">
+      <img src="../../icons/icon48.png" alt="" width="34" height="34">
+      <div>
+        <h1>Blue Pencil</h1>
+        <p class="sub">Writing suggestions from your own Ollama server.</p>
+      </div>
+      <span class="saved" id="saved" hidden>Saved</span>
+    </header>
+
+    <nav class="tabs" role="tablist" aria-label="Settings sections">
+      <button class="tab" type="button" role="tab" id="tab-model"
+              aria-controls="panel-model" aria-selected="true" data-tab="model">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <rect x="6.5" y="6.5" width="11" height="11" rx="2"/>
+          <path d="M10 2.5v4M14 2.5v4M10 17.5v4M14 17.5v4M2.5 10h4M2.5 14h4M17.5 10h4M17.5 14h4"/>
+        </svg>
+        <span>Model</span>
+        <span class="tab-dot" id="tab-dot-model" hidden></span>
+      </button>
+      <button class="tab" type="button" role="tab" id="tab-writing"
+              aria-controls="panel-writing" aria-selected="false" data-tab="writing" tabindex="-1">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M4 20.2 8.1 19.1 19.6 7.6a1.9 1.9 0 0 0 0-2.7l-.6-.6a1.9 1.9 0 0 0-2.7 0L4.9 15.9Z"/>
+          <path d="m14.6 6.1 3.3 3.3"/>
+        </svg>
+        <span>Writing</span>
+      </button>
+      <button class="tab" type="button" role="tab" id="tab-behaviour"
+              aria-controls="panel-behaviour" aria-selected="false" data-tab="behaviour" tabindex="-1">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M4 7h7M15 7h5M4 12h11M19 12h1M4 17h3M11 17h9"/>
+          <circle cx="13" cy="7" r="2"/>
+          <circle cx="17" cy="12" r="2"/>
+          <circle cx="9" cy="17" r="2"/>
+        </svg>
+        <span>Behaviour</span>
+      </button>
+      <button class="tab" type="button" role="tab" id="tab-sites"
+              aria-controls="panel-sites" aria-selected="false" data-tab="sites" tabindex="-1">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <circle cx="12" cy="12" r="9"/>
+          <path d="M3.2 9.5h17.6M3.2 14.5h17.6"/>
+          <path d="M12 3a14 14 0 0 1 0 18a14 14 0 0 1 0-18Z"/>
+        </svg>
+        <span>Sites</span>
+      </button>
+      <button class="tab" type="button" role="tab" id="tab-help"
+              aria-controls="panel-help" aria-selected="false" data-tab="help" tabindex="-1">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <circle cx="12" cy="12" r="9"/>
+          <path d="M9.4 9.3a2.7 2.7 0 1 1 3.5 2.6c-.6.2-.9.8-.9 1.4v.5"/>
+          <path d="M12 17.2h.01"/>
+        </svg>
+        <span>Help</span>
+      </button>
+    </nav>
+
+    <!-- ------------------------------------------------------------ Model -->
+    <section class="panel active" id="panel-model" role="tabpanel" aria-labelledby="tab-model">
+      <div class="card">
+        <h2>Ollama</h2>
+        <div class="row">
+          <div class="grow">
+            <label class="name" for="endpoint">Server address</label>
+            <span class="hint">Where Ollama is listening. The default suits a normal local install.</span>
+          </div>
+          <input type="text" id="endpoint" data-setting="endpoint" spellcheck="false"
+                 placeholder="http://localhost:11434" size="24">
+          <button id="test">Test</button>
+        </div>
+
+        <div class="row status-row">
+          <span class="dot" id="conn-dot"></span>
+          <div class="grow">
+            <span id="conn-text">Checking connection…</span>
+            <div class="hint" id="conn-hint"></div>
+          </div>
+        </div>
+
+        <div class="row">
+          <div class="grow">
+            <label class="name" for="model">Model</label>
+            <span class="hint" id="model-hint">A small instruct model is plenty. 7B-12B models
+              give the best balance of speed and judgement.</span>
+            <span class="hint" id="model-note"></span>
+          </div>
+          <select id="model" data-setting="model"></select>
+          <button id="refresh-models">Refresh</button>
+        </div>
+
+        <div class="row">
+          <div class="grow">
+            <label class="name" for="thinkingEffort">Thinking effort</label>
+            <span class="hint">How long the model reasons before answering. Reasoning is by far
+              the slowest part of a check and proofreading rarely needs it, so this starts
+              off. Raise it if your model misses mistakes — but check the result in
+              <b>Try it</b> below: some models become many times slower, or reason so long
+              they never get to an answer. Models that cannot reason ignore this.</span>
+            <span class="hint" id="effort-note"></span>
+          </div>
+          <select id="thinkingEffort" data-setting="thinkingEffort"></select>
+        </div>
+
+        <div class="row">
+          <div class="grow">
+            <label class="name" for="showCloudModels">Offer Ollama Cloud models</label>
+            <span class="hint">Lists the models Ollama hosts alongside the ones you have
+              downloaded. Picking one sends your text to Ollama’s servers to be run;
+              a downloaded model never leaves this machine. Requires
+              <code>ollama signin</code>.</span>
+          </div>
+          <label class="switch"><input type="checkbox" id="showCloudModels" data-setting="showCloudModels"><span></span></label>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Try it</h2>
+        <p class="hint spaced">Type something with mistakes and check it here, without leaving this page.</p>
+        <textarea id="playground" rows="3" spellcheck="false">i beleive the meeting is on tuesday, we should of confirmed it with there team.</textarea>
+        <div class="playground-foot">
+          <button class="primary" id="run-playground">Check this text</button>
+          <span class="hint" id="playground-status"></span>
+        </div>
+        <ul class="results" id="playground-results"></ul>
+      </div>
+
+      <details class="card">
+        <summary><h2>Model tuning</h2></summary>
+        <div class="row">
+          <div class="grow">
+            <label class="name" for="timeoutMs">Give up after</label>
+            <span class="hint">Large models on a cold start can take a while for the first answer.</span>
+          </div>
+          <input type="number" id="timeoutMs" data-setting="timeoutMs" min="5000" max="600000" step="1000" size="6">
+          <span class="hint">ms</span>
+        </div>
+        <div class="row">
+          <div class="grow">
+            <label class="name" for="numCtx">Context window</label>
+            <span class="hint">Tokens the model may use per check.</span>
+          </div>
+          <input type="number" id="numCtx" data-setting="numCtx" min="1024" max="131072" step="1024" size="6">
+        </div>
+        <div class="row">
+          <div class="grow">
+            <label class="name" for="maxChars">Longest text checked at once</label>
+            <span class="hint">Longer drafts are checked in a window around your cursor.</span>
+          </div>
+          <input type="number" id="maxChars" data-setting="maxChars" min="500" max="40000" step="500" size="6">
+          <span class="hint">characters</span>
+        </div>
+        <div class="row">
+          <div class="grow">
+            <label class="name" for="keepAlive">Keep the model loaded for</label>
+            <span class="hint">Ollama unloads the model after this idle time. Longer means faster
+              checks, at the cost of memory.</span>
+          </div>
+          <input type="text" id="keepAlive" data-setting="keepAlive" size="6" spellcheck="false">
+        </div>
+      </details>
+    </section>
+
+    <!-- ---------------------------------------------------------- Writing -->
+    <section class="panel" id="panel-writing" role="tabpanel" aria-labelledby="tab-writing" hidden>
+      <div class="card">
+        <h2>What to look for</h2>
+        <div class="row">
+          <div class="grow">
+            <span class="name">Categories</span>
+            <span class="hint">Turn off style and clarity if you only want hard errors.</span>
+          </div>
+          <div class="cats" id="cats"></div>
+        </div>
+        <div class="row">
+          <div class="grow">
+            <label class="name" for="dialect">Spelling conventions</label>
+          </div>
+          <select id="dialect" data-setting="dialect">
+            <option value="auto">Match the text</option>
+            <option value="en-US">American English</option>
+            <option value="en-GB">British English</option>
+            <option value="en-AU">Australian English</option>
+            <option value="en-CA">Canadian English</option>
+          </select>
+        </div>
+        <div class="row stack">
+          <div class="grow">
+            <label class="name" for="customInstructions">Standing instructions</label>
+            <span class="hint">Given to the model with every check. For example: “Never change my
+              em dashes.” or “I write in lowercase on purpose.”</span>
+          </div>
+          <textarea id="customInstructions" data-setting="customInstructions" rows="3"
+                    placeholder="Optional"></textarea>
+        </div>
+      </div>
+    </section>
+
+    <!-- -------------------------------------------------------- Behaviour -->
+    <section class="panel" id="panel-behaviour" role="tabpanel" aria-labelledby="tab-behaviour" hidden>
+      <div class="card">
+        <h2>Behaviour</h2>
+        <div class="row">
+          <div class="grow">
+            <label class="name" for="enabled">Blue Pencil is on</label>
+            <span class="hint">The master switch. Also on the toolbar popup.</span>
+          </div>
+          <label class="switch"><input type="checkbox" id="enabled" data-setting="enabled"><span></span></label>
+        </div>
+        <div class="row">
+          <div class="grow">
+            <label class="name" for="autoCheck">Check as I type</label>
+            <span class="hint">Off means nothing is sent until you ask, with the button or
+              <kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>B</kbd>.</span>
+          </div>
+          <label class="switch"><input type="checkbox" id="autoCheck" data-setting="autoCheck"><span></span></label>
+        </div>
+        <div class="row">
+          <div class="grow">
+            <label class="name" for="checkDelayMs">Pause before checking</label>
+            <span class="hint">How long to wait after you stop typing. <b id="delay-value"></b></span>
+          </div>
+          <input type="range" id="checkDelayMs" data-setting="checkDelayMs" min="300" max="3000" step="100">
+        </div>
+        <div class="row">
+          <div class="grow">
+            <label class="name" for="minChars">Ignore text shorter than</label>
+            <span class="hint">Stops short search boxes and usernames from being checked.</span>
+          </div>
+          <input type="number" id="minChars" data-setting="minChars" min="1" max="200" size="4">
+          <span class="hint">characters</span>
+        </div>
+        <div class="row">
+          <div class="grow">
+            <label class="name" for="showUnderlines">Underline problems in the field</label>
+          </div>
+          <label class="switch"><input type="checkbox" id="showUnderlines" data-setting="showUnderlines"><span></span></label>
+        </div>
+        <div class="row">
+          <div class="grow">
+            <label class="name" for="showButton">Show the pencil button on fields</label>
+          </div>
+          <label class="switch"><input type="checkbox" id="showButton" data-setting="showButton"><span></span></label>
+        </div>
+      </div>
+    </section>
+
+    <!-- ------------------------------------------------------------ Sites -->
+    <section class="panel" id="panel-sites" role="tabpanel" aria-labelledby="tab-sites" hidden>
+      <div class="card">
+        <h2>Sites</h2>
+        <div class="row stack">
+          <div class="grow">
+            <span class="name">Turned off on</span>
+            <span class="hint">Blue Pencil never touches password fields, payment fields or code
+              editors anywhere. Add sites you want it to leave alone entirely.</span>
+          </div>
+          <div class="chips" id="sites"><span class="hint" id="sites-empty">No sites yet.</span></div>
+          <div class="add-site">
+            <input type="text" id="site-input" placeholder="example.com" spellcheck="false">
+            <button id="add-site">Add</button>
+          </div>
+        </div>
+        <div class="row stack">
+          <div class="grow">
+            <label class="name" for="excludeSelectors">Skip elements matching</label>
+            <span class="hint">A CSS selector, if some field on a site you use should be left alone.</span>
+          </div>
+          <input type="text" id="excludeSelectors" data-setting="excludeSelectors" spellcheck="false"
+                 placeholder=".my-code-field, #terminal-input">
+        </div>
+      </div>
+    </section>
+
+    <!-- ------------------------------------------------------------- Help -->
+    <section class="panel" id="panel-help" role="tabpanel" aria-labelledby="tab-help" hidden>
+      <div class="card help">
+        <h2>Setting up Ollama</h2>
+        <ol>
+          <li>Install Ollama from <a href="https://ollama.com/download" target="_blank" rel="noreferrer">ollama.com/download</a>.</li>
+          <li>Pull a model, for example <code>ollama pull llama3.2</code> or <code>ollama pull qwen2.5:7b</code>.</li>
+          <li>Make sure the server is running: <code>ollama serve</code>. On Windows and macOS the
+            desktop app does this for you.</li>
+          <li>If the connection fails with a 403, allow browser extensions to reach Ollama:
+            <code>OLLAMA_ORIGINS=chrome-extension://* ollama serve</code>.</li>
+        </ol>
+      </div>
+
+      <div class="card help">
+        <h2>Keyboard</h2>
+        <ul class="keys">
+          <li><kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>B</kbd> — check the field you are in now</li>
+          <li><kbd>Alt</kbd>+<kbd>Enter</kbd> — apply the suggestion on screen</li>
+          <li><kbd>Alt</kbd>+<kbd>↓</kbd> / <kbd>Alt</kbd>+<kbd>↑</kbd> — move between suggestions</li>
+          <li><kbd>Esc</kbd> — dismiss the card</li>
+        </ul>
+        <p class="hint spaced-top">Shortcuts can be changed at
+          <a href="#" id="shortcuts-link">chrome://extensions/shortcuts</a>.</p>
+      </div>
+
+      <div class="card help">
+        <h2>Where your text goes</h2>
+        <ul>
+          <li>Checks are sent to the Ollama server at the address on the <b>Model</b> tab, and
+            nowhere else.</li>
+          <li>A downloaded model runs on this machine. An Ollama Cloud model runs on Ollama’s
+            servers, so your text is sent to them.</li>
+          <li>The only other request Blue Pencil makes is to <code>ollama.com/api/tags</code>,
+            for the list of cloud models. Turn off <b>Offer Ollama Cloud models</b> and it is
+            never fetched.</li>
+          <li>Password fields, payment fields and code editors are never read.</li>
+        </ul>
+      </div>
+    </section>
+
+    <footer class="foot">
+      <span class="hint">Blue Pencil <span id="version"></span></span>
+      <button id="reset">Reset all settings</button>
+    </footer>
+  </div>
+
+  <script src="../lib/defaults.js"></script>
+  <script src="../lib/prompt.js"></script>
+  <script src="../content/util.js"></script>
+  <script src="options.js"></script>
+</body>
+</html>

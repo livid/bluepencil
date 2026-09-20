@@ -1,0 +1,64 @@
+{
+  "manifest_version": 3,
+  "name": "Blue Pencil",
+  "version": "0.1.0",
+  "description": "Grammarly-style writing suggestions in every text field, powered by your own Ollama server. Your text goes to Ollama and nowhere else.",
+  "minimum_chrome_version": "116",
+  "permissions": ["storage", "activeTab", "declarativeNetRequestWithHostAccess"],
+  "host_permissions": [
+    "http://localhost/*",
+    "http://127.0.0.1/*",
+    "http://[::1]/*",
+    "https://ollama.com/api/tags"
+  ],
+  "optional_host_permissions": ["http://*/*", "https://*/*"],
+  "background": {
+    "service_worker": "src/background/service-worker.js"
+  },
+  "action": {
+    "default_title": "Blue Pencil",
+    "default_popup": "src/popup/popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "options_ui": {
+    "page": "src/options/options.html",
+    "open_in_tab": true
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": [
+        "src/lib/defaults.js",
+        "src/content/util.js",
+        "src/content/editor.js",
+        "src/content/highlight.js",
+        "src/content/ui.js",
+        "src/content/main.js"
+      ],
+      "css": ["src/content/content.css"],
+      "run_at": "document_idle",
+      "all_frames": true,
+      "match_about_blank": true
+    }
+  ],
+  "commands": {
+    "check-now": {
+      "suggested_key": { "default": "Alt+Shift+B" },
+      "description": "Check the focused text field now"
+    },
+    "toggle-enabled": {
+      "description": "Turn Blue Pencil on or off"
+    }
+  }
+}

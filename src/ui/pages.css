@@ -1,0 +1,149 @@
+/* Blue Pencil - shared styles for the options page and the popup. */
+
+:root {
+  --bg: #f7f8fb;
+  --panel: #ffffff;
+  --fg: #14181f;
+  --muted: #5c6673;
+  --line: #e3e7ee;
+  --accent: #2563eb;
+  --accent-soft: rgba(37, 99, 235, .12);
+  --ok: #0f9d58;
+  --warn: #d97706;
+  --danger: #e0342b;
+  --btn: #f1f4f9;
+  --radius: 10px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #14171d;
+    --panel: #1b1f27;
+    --fg: #eef1f6;
+    --muted: #a2adbd;
+    --line: #2e353f;
+    --accent: #5b8cff;
+    --accent-soft: rgba(91, 140, 255, .18);
+    --ok: #4ade80;
+    --warn: #fbbf24;
+    --danger: #ff6b61;
+    --btn: #262c36;
+  }
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font: 14px/1.5 ui-sans-serif, -apple-system, "Segoe UI", Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3 { margin: 0; font-weight: 650; }
+
+a { color: var(--accent); }
+
+code, kbd {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12.5px;
+  background: var(--btn);
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  padding: 1px 5px;
+}
+
+.card {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 16px 18px;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 0;
+  border-top: 1px solid var(--line);
+}
+.row:first-of-type { border-top: 0; }
+.row .grow { flex: 1; min-width: 0; }
+.row .name { font-weight: 550; display: block; }
+.row .hint { color: var(--muted); font-size: 12.5px; }
+
+input[type="text"],
+input[type="number"],
+select,
+textarea {
+  font: inherit;
+  color: var(--fg);
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 7px 9px;
+}
+input[type="text"]:focus,
+input[type="number"]:focus,
+select:focus,
+textarea:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: -1px;
+  border-color: transparent;
+}
+textarea { width: 100%; resize: vertical; line-height: 1.5; }
+select { cursor: pointer; }
+
+button {
+  font: inherit;
+  font-size: 13px;
+  padding: 7px 13px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: var(--btn);
+  color: var(--fg);
+  cursor: pointer;
+}
+button:hover { border-color: var(--muted); }
+button.primary { background: var(--accent); border-color: transparent; color: #fff; font-weight: 600; }
+button.primary:hover { filter: brightness(1.08); }
+button:disabled { opacity: .55; cursor: default; }
+
+/* Switch */
+.switch { position: relative; width: 38px; height: 22px; flex: none; }
+.switch input { position: absolute; opacity: 0; width: 100%; height: 100%; margin: 0; cursor: pointer; }
+.switch span {
+  position: absolute; inset: 0; border-radius: 999px;
+  background: var(--line); transition: background .15s ease; pointer-events: none;
+}
+.switch span::after {
+  content: ""; position: absolute; top: 3px; left: 3px;
+  width: 16px; height: 16px; border-radius: 999px; background: #fff;
+  transition: transform .15s ease; box-shadow: 0 1px 2px rgba(0, 0, 0, .3);
+}
+.switch input:checked + span { background: var(--accent); }
+.switch input:disabled + span { opacity: .4; }
+.switch input:disabled { cursor: default; }
+.switch input:checked + span::after { transform: translateX(16px); }
+.switch input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.dot { width: 8px; height: 8px; border-radius: 999px; background: var(--muted); flex: none; }
+.dot.ok { background: var(--ok); }
+.dot.bad { background: var(--danger); }
+.dot.wait { background: var(--warn); }
+
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: var(--btn); border: 1px solid var(--line);
+  border-radius: 999px; padding: 3px 6px 3px 11px; font-size: 12.5px;
+}
+.chip button {
+  border: 0; background: none; padding: 0 4px; color: var(--muted);
+  font-size: 14px; line-height: 1; cursor: pointer;
+}
+.chip button:hover { color: var(--danger); }
+
+.checkline { display: flex; align-items: center; gap: 8px; }
+.checkline input { width: 16px; height: 16px; accent-color: var(--accent); }

@@ -1,0 +1,23 @@
+/* Blue Pencil - the only styles injected into the page itself.
+
+   ::highlight() rules must live in the page's own stylesheet, because the
+   CSS Custom Highlight API paints the page's real text nodes. Everything else
+   Blue Pencil draws lives inside a shadow root and cannot leak. */
+
+::highlight(bp-correct) {
+  text-decoration: underline wavy #e0342b;
+  text-decoration-thickness: 1.5px;
+  text-underline-offset: 2px;
+  text-decoration-skip-ink: none;
+}
+
+::highlight(bp-improve) {
+  text-decoration: underline wavy #2563eb;
+  text-decoration-thickness: 1.5px;
+  text-underline-offset: 2px;
+  text-decoration-skip-ink: none;
+}
+
+::highlight(bp-active) {
+  background-color: rgba(37, 99, 235, 0.16);
+}
