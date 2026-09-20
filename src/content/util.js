@@ -192,6 +192,88 @@
     return out;
   }
 
+  /* ------------------------------------------------------------ sentences */
+
+  const TERMINATORS = '.!?\u3002\uff01\uff1f\u2026';
+  const WIDE_TERMINATORS = '\u3002\uff01\uff1f';
+  const CLOSERS = '"\')]}\u00bb\u201d\u2019';
+  const ABBREVIATIONS = [
+    'mr', 'mrs', 'ms', 'dr', 'prof', 'sr', 'jr', 'st', 'vs', 'etc',
+    'eg', 'ie', 'approx', 'dept', 'est', 'fig', 'inc', 'ltd', 'no', 'vol'
+  ];
+
+  /* Does a sentence end at index `i`? Returns the offset just past the
+     terminator (and any quotes or brackets closing after it), or -1. */
+  function sentenceBreakAt(text, i) {
+    const ch = text[i];
+    if (TERMINATORS.indexOf(ch) === -1) return -1;
+
+    let end = i + 1;
+    while (end < text.length &&
+           (TERMINATORS.indexOf(text[end]) !== -1 || CLOSERS.indexOf(text[end]) !== -1)) end++;
+
+    // CJK punctuation is full-width and stands on its own; Latin punctuation
+    // only ends a sentence when whitespace follows.
+    const wide = WIDE_TERMINATORS.indexOf(ch) !== -1;
+    if (!wide && end < text.length && !/\s/.test(text[end])) return -1;
+
+    let next = end;
+    while (next < text.length && /\s/.test(text[next])) next++;
+
+    if (ch === '.') {
+      // "Mr. Smith", "e.g. this", "J. R. Tolkien" - not sentence ends.
+      const following = text[next];
+      if (following && following.toLowerCase() === following && /\p{L}/u.test(following)) return -1;
+      let wordStart = i;
+      while (wordStart > 0 && /[\p{L}\p{N}.]/u.test(text[wordStart - 1])) wordStart--;
+      const word = text.slice(wordStart, i).replace(/\./g, '').toLowerCase();
+      if (word.length === 1 || ABBREVIATIONS.indexOf(word) !== -1) return -1;
+    }
+    return end;
+  }
+
+  /** The sentence (or line) that the span start..end sits inside. */
+  function sentenceRange(text, start, end) {
+    const from = clamp(start, 0, text.length);
+    const to = clamp(end, from, text.length);
+
+    let left = 0;
+    for (let i = from - 1; i >= 0; i--) {
+      if (text[i] === '\n') { left = i + 1; break; }
+      const brk = sentenceBreakAt(text, i);
+      if (brk !== -1 && brk <= from) { left = brk; break; }
+    }
+    while (left < from && /\s/.test(text[left])) left++;
+
+    let right = text.length;
+    for (let i = Math.max(to - 1, left); i < text.length; i++) {
+      if (text[i] === '\n') { right = i; break; }
+      const brk = sentenceBreakAt(text, i);
+      if (brk !== -1 && brk >= to) { right = brk; break; }
+    }
+    while (right > to && /\s/.test(text[right - 1])) right--;
+
+    return { start: left, end: right };
+  }
+
+  /**
+   * Bundle suggestions by the sentence they land in, so the card can show a
+   * whole sentence at once. Expects suggestions sorted by start offset.
+   */
+  function groupBySentence(text, suggestions) {
+    const groups = [];
+    (suggestions || []).forEach(function (suggestion) {
+      const range = sentenceRange(text, suggestion.start, suggestion.end);
+      const last = groups[groups.length - 1];
+      if (last && last.start === range.start && last.end === range.end) {
+        last.items.push(suggestion);
+        return;
+      }
+      groups.push({ start: range.start, end: range.end, items: [suggestion] });
+    });
+    return groups;
+  }
+
   /** Trim the shared prefix/suffix so the card shows only what changes. */
   function diffParts(before, after) {
     let start = 0;
@@ -230,6 +312,8 @@
     hashString: hashString,
     anchor: anchor,
     locateEdits: locateEdits,
+    sentenceRange: sentenceRange,
+    groupBySentence: groupBySentence,
     diffParts: diffParts,
     clamp: clamp
   };

@@ -2,7 +2,7 @@
 
    Tracks whichever editable field has focus, asks the service worker (and
    through it, Ollama) for edits when typing pauses, and drives the underlines
-   and the suggestion card. */
+   and the sentence review card. */
 (function () {
   'use strict';
 
@@ -241,15 +241,19 @@
     active.status = 'ready';
     active.truncated = slice.text.length < currentText.length;
 
+    const cardOpen = ui.panelKind() === 'suggestion';
     if (active.activeId && !located.some(function (s) { return s.id === active.activeId; })) {
       active.activeId = null;
-      if (ui.panelKind() === 'suggestion') ui.hidePanel();
+      if (cardOpen) ui.hidePanel();
     }
     active.highlighter.update(located, active.activeId);
     refreshButton();
 
+    // A card left open belongs to the text as it was; redraw it on the new run.
+    if (cardOpen && active.activeId) showSentence(active.activeId, active.pinned);
+
     if (opts.reveal && located.length) {
-      showSuggestion(located[0].id, true);
+      showSentence(located[0].id, true);
     } else if (opts.reveal) {
       ui.showMessage({
         title: 'Blue Pencil',
@@ -276,15 +280,59 @@
 
   /* ----------------------------------------------------------- suggestions */
 
-  function showSuggestion(id, pinned) {
+  function suggestionById(id) {
+    if (!active || !id) return null;
+    return active.suggestions.find(function (s) { return s.id === id; }) || null;
+  }
+
+  /* Suggestions are reviewed a sentence at a time: the card shows the whole
+     sentence with every proposed change in place, and each can be taken or
+     left on its own. */
+  function sentenceGroups() {
+    if (!active || !active.suggestions.length) return [];
+    return BP.util.groupBySentence(active.adapter.getText(), active.suggestions);
+  }
+
+  function groupIndexOf(groups, id) {
+    for (let i = 0; i < groups.length; i++) {
+      const hit = groups[i].items.some(function (s) { return s.id === id; });
+      if (hit) return i;
+    }
+    return -1;
+  }
+
+  function currentGroup(groups) {
+    const list = groups || sentenceGroups();
+    const index = groupIndexOf(list, active ? active.activeId : null);
+    return index === -1 ? null : list[index];
+  }
+
+  /** The change to fall back to once the one at `offset` is gone. */
+  function nearestSuggestion(offset) {
+    if (!active || !active.suggestions.length) return null;
+    return active.suggestions.find(function (s) { return s.start >= offset; }) ||
+      active.suggestions[active.suggestions.length - 1];
+  }
+
+  /** Open the card on the sentence holding `id`, focused on that change. */
+  function showSentence(id, pinned) {
     if (!active || !ui) return;
-    const index = active.suggestions.findIndex(function (s) { return s.id === id; });
-    if (index === -1) return;
-    const suggestion = active.suggestions[index];
-    active.activeId = id;
+    const groups = sentenceGroups();
+    if (!groups.length) return;
+    const index = Math.max(0, groupIndexOf(groups, id));
+    const group = groups[index];
+    const focused = group.items.find(function (s) { return s.id === id; }) || group.items[0];
+
+    active.activeId = focused.id;
     active.pinned = Boolean(pinned);
-    active.highlighter.setActive(id);
-    ui.showSuggestion(suggestion, index, active.suggestions.length, anchorRectFor(suggestion));
+    active.highlighter.setActive(focused.id);
+    ui.showSentence({
+      text: active.adapter.getText(),
+      group: group,
+      focusId: focused.id,
+      index: index,
+      total: groups.length
+    }, anchorRectFor(focused));
   }
 
   function hideSuggestion() {
@@ -295,11 +343,14 @@
     ui.hidePanel();
   }
 
+  /** Move to the previous or next sentence that has suggestions. */
   function navigate(delta) {
-    if (!active || !active.suggestions.length) return;
-    const index = active.suggestions.findIndex(function (s) { return s.id === active.activeId; });
-    const next = (index + delta + active.suggestions.length) % active.suggestions.length;
-    showSuggestion(active.suggestions[next].id, true);
+    if (!active) return;
+    const groups = sentenceGroups();
+    if (!groups.length) return;
+    const index = Math.max(0, groupIndexOf(groups, active.activeId));
+    const next = (index + delta + groups.length) % groups.length;
+    showSentence(groups[next].items[0].id, true);
   }
 
   /** Re-find every remaining suggestion after the text changed underneath us. */
@@ -319,20 +370,58 @@
     active.highlighter.update(kept, active.activeId);
   }
 
-  function applySuggestion() {
+  function dropSuggestion(id) {
     if (!active) return;
-    const suggestion = currentSuggestion();
-    if (!suggestion) return;
+    active.suggestions = active.suggestions.filter(function (s) { return s.id !== id; });
+    if (active.activeId === id) active.activeId = null;
+    active.highlighter.update(active.suggestions, active.activeId);
+  }
+
+  /* Put the text change into the field. Returns 'ok', 'missing' when the text
+     it targeted is no longer there, or 'refused' when the editor said no. */
+  function applyOne(id) {
+    const suggestion = suggestionById(id);
+    if (!suggestion) return 'missing';
 
     const text = active.adapter.getText();
     const hit = BP.util.anchor(text, suggestion.before, [], suggestion.start);
     if (!hit) {
-      removeSuggestion(suggestion.id);
-      return;
+      dropSuggestion(id);
+      return 'missing';
     }
+    if (!active.adapter.replaceRange(hit.start, hit.end, suggestion.after)) return 'refused';
 
-    const ok = active.adapter.replaceRange(hit.start, hit.end, suggestion.after);
-    if (!ok) {
+    dropSuggestion(id);
+    active.lastCheckedText = active.adapter.getText();
+    reanchorAll();
+    return 'ok';
+  }
+
+  /** Redraw or close the card once a change has been taken or left. */
+  function settle(offset, recheck) {
+    if (!active) return;
+    refreshButton();
+    if (recheck) rescheduleCheck();
+    if (active.pinned) {
+      const next = nearestSuggestion(offset);
+      if (next) {
+        showSentence(next.id, true);
+        return;
+      }
+    }
+    hideSuggestion();
+  }
+
+  function applySuggestion(id) {
+    if (!active) return;
+    const suggestion = suggestionById(id || active.activeId);
+    if (!suggestion) return;
+    // Acting on a change means the reviewer is working through the sentence,
+    // so the card stays put rather than fading away like a hover preview.
+    active.pinned = true;
+
+    const offset = suggestion.start;
+    if (applyOne(suggestion.id) === 'refused') {
       ui.showMessage({
         title: 'Blue Pencil',
         tone: 'error',
@@ -340,38 +429,55 @@
       }, anchorRectFor(suggestion));
       return;
     }
-
-    const index = active.suggestions.findIndex(function (s) { return s.id === suggestion.id; });
-    active.suggestions = active.suggestions.filter(function (s) { return s.id !== suggestion.id; });
-    active.activeId = null;
-    active.lastCheckedText = active.adapter.getText();
-    reanchorAll();
-    refreshButton();
-
-    const next = active.suggestions[Math.min(index, active.suggestions.length - 1)];
-    if (next && active.pinned) showSuggestion(next.id, true);
-    else hideSuggestion();
-
-    rescheduleCheck();
+    settle(offset, true);
   }
 
-  function removeSuggestion(id) {
+  /** Take every change in the sentence on screen, top to bottom. */
+  function applyGroup() {
     if (!active) return;
-    active.suggestions = active.suggestions.filter(function (s) { return s.id !== id; });
-    if (active.activeId === id) active.activeId = null;
-    active.highlighter.update(active.suggestions, active.activeId);
-    if (ui.panelKind() === 'suggestion') ui.hidePanel();
-    refreshButton();
+    const group = currentGroup();
+    if (!group) return;
+    active.pinned = true;
+
+    const offset = group.start;
+    let refused = false;
+    group.items.forEach(function (item) {
+      if (applyOne(item.id) === 'refused') refused = true;
+    });
+    if (refused) {
+      ui.showMessage({
+        title: 'Blue Pencil',
+        tone: 'error',
+        message: 'This editor would not accept some of the changes. Try editing it by hand.'
+      }, ui.buttonRect());
+      refreshButton();
+      return;
+    }
+    settle(offset, true);
   }
 
-  function dismissSuggestion() {
-    const suggestion = currentSuggestion();
-    if (!suggestion || !active) return;
+  function dismissSuggestion(id) {
+    if (!active) return;
+    const suggestion = suggestionById(id || active.activeId);
+    if (!suggestion) return;
+    active.pinned = true;
+    const offset = suggestion.start;
     active.dismissed.add(dismissKey(suggestion));
-    const index = active.suggestions.findIndex(function (s) { return s.id === suggestion.id; });
-    removeSuggestion(suggestion.id);
-    const next = active.suggestions[Math.min(index, active.suggestions.length - 1)];
-    if (next && active.pinned) showSuggestion(next.id, true);
+    dropSuggestion(suggestion.id);
+    settle(offset, false);
+  }
+
+  function dismissGroup() {
+    if (!active) return;
+    const group = currentGroup();
+    if (!group) return;
+    active.pinned = true;
+    const offset = group.start;
+    group.items.forEach(function (item) {
+      active.dismissed.add(dismissKey(item));
+      dropSuggestion(item.id);
+    });
+    settle(offset, false);
   }
 
   /* -------------------------------------------------------------- rewrite */
@@ -549,7 +655,10 @@
     if (active.composing) return;
     active.adapter.refresh();
     if (active.suggestions.length) reanchorAll();
-    if (ui && ui.panelKind() === 'suggestion' && !currentSuggestion()) ui.hidePanel();
+    if (ui && ui.panelKind() === 'suggestion') {
+      if (currentSuggestion()) showSentence(active.activeId, active.pinned);
+      else hideSuggestion();
+    }
     active.status = active.suggestions.length ? 'ready' : 'idle';
     refreshButton();
     rescheduleCheck();
@@ -582,7 +691,7 @@
       return;
     }
     hoverTimer = setTimeout(function () {
-      if (active && hoveredId === id) showSuggestion(id, false);
+      if (active && hoveredId === id) showSentence(id, false);
     }, 200);
   }, true);
 
@@ -595,7 +704,7 @@
     }
     const id = active.highlighter.hitTest(event.clientX, event.clientY);
     if (id) {
-      setTimeout(function () { showSuggestion(id, true); }, 0);
+      setTimeout(function () { showSentence(id, true); }, 0);
     } else if (ui.panelKind() === 'suggestion') {
       hideSuggestion();
     }
@@ -615,13 +724,14 @@
       if (panel === 'suggestion' && currentSuggestion()) {
         event.preventDefault();
         event.stopPropagation();
-        applySuggestion();
+        if (event.shiftKey) applyGroup();
+        else applySuggestion();
       } else if (panel === 'rewrite' && pendingRewrite) {
         event.preventDefault();
         applyRewrite();
       } else if (active.suggestions.length) {
         event.preventDefault();
-        showSuggestion(active.suggestions[0].id, true);
+        showSentence(active.suggestions[0].id, true);
       }
       return;
     }
@@ -707,7 +817,7 @@
           return;
         }
         if (active.suggestions.length) {
-          showSuggestion(active.suggestions[0].id, true);
+          showSentence(active.suggestions[0].id, true);
           return;
         }
         ui.showMenu(rect, { hostname: HOSTNAME, hasSelection: hasSelection() });
@@ -717,6 +827,9 @@
       },
       onApply: applySuggestion,
       onDismiss: dismissSuggestion,
+      onApplyAll: applyGroup,
+      onDismissAll: dismissGroup,
+      onFocus: function (id) { if (id) showSentence(id, true); },
       onNavigate: navigate,
       onClose: function () {
         pendingRewrite = null;

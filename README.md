@@ -12,8 +12,10 @@ Pick a downloaded model and nothing you type ever leaves your machine.
   editors built on `contenteditable` (Gmail, Slack, GitHub, Notion-style editors).
 - When you pause, it asks your local model for corrections and underlines them in
   place: red for spelling, grammar and punctuation; blue for style and clarity.
-- Click an underline (or the pencil badge on the field) for a card explaining the
-  problem, with **Apply** and **Ignore**.
+- Click an underline (or the pencil badge on the field) to review the sentence it
+  sits in: the whole sentence is shown with every proposed change in place, and
+  each one has its own **accept** or **ignore**. **Accept all** takes the sentence
+  in one go, and `‹ ›` steps through the other sentences that need attention.
 - Rewrite the whole field or just your selection: fix errors, improve, shorten, make
   it formal, make it friendly. You see the result before it replaces anything.
 - Applied fixes go through the browser's own editing pipeline, so **Ctrl+Z undoes
@@ -79,8 +81,9 @@ OLLAMA_ORIGINS="chrome-extension://*" ollama serve
 | Shortcut | Action |
 | --- | --- |
 | `Alt+Shift+B` | Check the field you are in right now |
-| `Alt+Enter` | Apply the suggestion on screen |
-| `Alt+↓` / `Alt+↑` | Move between suggestions |
+| `Alt+Enter` | Accept the change in focus |
+| `Alt+Shift+Enter` | Accept every change in the sentence |
+| `Alt+↓` / `Alt+↑` | Move between sentences |
 | `Esc` | Dismiss the card |
 
 `Alt+Shift+B` can be changed at `chrome://extensions/shortcuts`.
@@ -161,11 +164,12 @@ src/
   background/
     service-worker.js  all Ollama traffic, caching, request cancellation
   content/
-    util.js            the anchoring engine: model edits → verified text spans
+    util.js            the anchoring engine: model edits → verified text spans,
+                       and the sentence grouping behind the review card
     editor.js          one interface over input/textarea/contenteditable
     highlight.js       underlines: mirror overlay for inputs, CSS Custom
                        Highlight API for rich editors
-    ui.js              the field button, suggestion card and rewrite panel
+    ui.js              the field button, sentence review card and rewrite panel
     main.js            orchestration
   options/, popup/, ui/
 icons/

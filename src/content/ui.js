@@ -1,4 +1,4 @@
-/* Blue Pencil - on-page interface: the field button, the suggestion card,
+/* Blue Pencil - on-page interface: the field button, the sentence review card,
    the rewrite menu and its preview. Everything lives in one shadow root so
    page styles cannot reach it and its styles cannot reach the page. */
 (function (root) {
@@ -89,11 +89,43 @@
   }
   .iconbtn:hover { background: var(--btn-bg); color: var(--fg); }
 
-  .diff { padding: 8px 12px 0; font-size: 14px; word-break: break-word; }
-  .diff .ctx { color: var(--muted); }
-  .diff del { text-decoration: line-through; text-decoration-color: var(--danger); color: var(--muted); }
-  .diff ins { text-decoration: none; color: var(--ok); font-weight: 600; background: rgba(15, 157, 88, .12); border-radius: 3px; padding: 0 2px; }
+  del { text-decoration: line-through; text-decoration-color: var(--danger); color: var(--muted); }
+  ins { text-decoration: none; color: var(--ok); font-weight: 600; background: rgba(15, 157, 88, .12); border-radius: 3px; padding: 0 2px; }
   .reason { padding: 6px 12px 0; color: var(--muted); font-size: 12.5px; }
+
+  /* The sentence under review, with every proposed change shown in place. */
+  .sentence {
+    padding: 9px 12px 2px; font-size: 13.5px; line-height: 1.65;
+    max-height: 170px; overflow: auto; word-break: break-word;
+  }
+  .sentence .ctx { white-space: pre-wrap; }
+  .sentence .edit {
+    border-radius: 3px; padding: 0 1px; cursor: pointer;
+    box-shadow: inset 0 -1.5px 0 var(--accent);
+  }
+  .sentence .edit.correct { box-shadow: inset 0 -1.5px 0 var(--danger); }
+  .sentence .edit ins { margin-left: 3px; }
+  .sentence .edit.active { background: rgba(37, 99, 235, .13); box-shadow: inset 0 -2px 0 var(--accent); }
+  .sentence .edit.active.correct { background: rgba(224, 52, 43, .11); box-shadow: inset 0 -2px 0 var(--danger); }
+
+  .rows { margin-top: 7px; border-top: 1px solid var(--line); max-height: 176px; overflow: auto; }
+  .row {
+    display: flex; align-items: flex-start; gap: 8px;
+    padding: 7px 8px 7px 12px; cursor: pointer;
+    border-bottom: 1px solid var(--line);
+  }
+  .row:last-child { border-bottom: 0; }
+  .row:hover { background: var(--btn-bg); }
+  .row.active { background: rgba(37, 99, 235, .09); }
+  .row .dot { width: 6px; height: 6px; border-radius: 999px; margin-top: 7px; flex: none; background: var(--accent); }
+  .row .dot.correct { background: var(--danger); }
+  .row .rowbody { flex: 1; min-width: 0; }
+  .row .rowdiff { font-size: 13px; word-break: break-word; }
+  .row .rowmeta { font-size: 11.5px; color: var(--muted); margin-top: 1px; }
+  .row .rowacts { display: flex; gap: 2px; margin-left: auto; flex: none; }
+  .row .iconbtn { font-size: 13px; padding: 3px 5px; }
+  .row .iconbtn.ok:hover { background: rgba(15, 157, 88, .14); color: var(--ok); }
+  .row .iconbtn.no:hover { background: rgba(224, 52, 43, .12); color: var(--danger); }
 
   .foot { display: flex; align-items: center; gap: 6px; padding: 10px 12px 11px; }
   .btn {
@@ -202,6 +234,7 @@
 
     let panelKind = null;
     let pointerInside = false;
+    let sentenceSignature = '';
 
     // Never let a click on our own chrome pull focus out of the text field.
     function keepFocus(event) {
@@ -236,9 +269,13 @@
         return;
       }
       const act = target.getAttribute('data-act');
+      const id = target.getAttribute('data-sid') || null;
       const map = {
         apply: handlers.onApply,
         dismiss: handlers.onDismiss,
+        focus: handlers.onFocus,
+        'apply-all': handlers.onApplyAll,
+        'dismiss-all': handlers.onDismissAll,
         next: function () { handlers.onNavigate && handlers.onNavigate(1); },
         prev: function () { handlers.onNavigate && handlers.onNavigate(-1); },
         close: handlers.onClose,
@@ -251,10 +288,11 @@
         retry: handlers.onCheckNow
       };
       const fn = map[act];
-      if (fn) fn();
+      if (fn) fn(id);
     });
 
     function showPanel(kind, html, anchorRect, wide) {
+      if (kind !== 'suggestion') sentenceSignature = '';
       panelKind = kind;
       panel.className = '';
       panel.innerHTML = html;
@@ -268,6 +306,7 @@
     }
 
     function hidePanel() {
+      sentenceSignature = '';
       panelKind = null;
       panel.className = 'hidden';
       panel.innerHTML = '';
@@ -275,15 +314,79 @@
 
     function escape(text) { return BP.util.escapeHtml(text); }
 
-    function renderDiff(suggestion) {
-      const parts = BP.util.diffParts(suggestion.before, suggestion.after);
-      let html = '';
-      if (parts.prefix) html += '<span class="ctx">' + escape(parts.prefix) + '</span>';
-      if (parts.removed) html += '<del>' + escape(parts.removed) + '</del>';
-      if (parts.removed && parts.added) html += ' ';
-      if (parts.added) html += '<ins>' + escape(parts.added) + '</ins>';
-      if (parts.suffix) html += '<span class="ctx">' + escape(parts.suffix) + '</span>';
-      return html || '<ins>' + escape(suggestion.after) + '</ins>';
+    function editClass(suggestion) {
+      return BP.CORRECTION_CATEGORIES.indexOf(suggestion.category) === -1 ? 'improve' : 'correct';
+    }
+
+    function editSpan(suggestion, active) {
+      return '<span class="edit ' + editClass(suggestion) +
+        (active ? ' active' : '') + '" data-act="focus" data-sid="' + suggestion.id + '">' +
+        '<del>' + escape(suggestion.before) + '</del>' +
+        (suggestion.after ? '<ins>' + escape(suggestion.after) + '</ins>' : '') +
+        '</span>';
+    }
+
+    /* The sentence, verbatim, with each proposed change spliced in where it
+       sits. Very long sentences are trimmed to the changes plus context. */
+    const CONTEXT_CHARS = 180;
+
+    function renderSentence(view) {
+      const text = view.text;
+      const items = view.group.items;
+      let from = view.group.start;
+      let to = view.group.end;
+      let head = '';
+      let tail = '';
+
+      if (items[0].start - from > CONTEXT_CHARS) {
+        from = items[0].start - CONTEXT_CHARS;
+        head = '<span class="ctx">… </span>';
+      }
+      const lastEnd = items[items.length - 1].end;
+      if (to - lastEnd > CONTEXT_CHARS) {
+        to = lastEnd + CONTEXT_CHARS;
+        tail = '<span class="ctx"> …</span>';
+      }
+
+      let html = head;
+      let cursor = from;
+      items.forEach(function (item) {
+        if (item.start < cursor || item.end > to) return;
+        if (item.start > cursor) html += '<span class="ctx">' + escape(text.slice(cursor, item.start)) + '</span>';
+        html += editSpan(item, item.id === view.focusId);
+        cursor = item.end;
+      });
+      if (cursor < to) html += '<span class="ctx">' + escape(text.slice(cursor, to)) + '</span>';
+      return html + tail;
+    }
+
+    /* Rows show only the part that actually changes, so a long span stays
+       readable; the sentence above already carries the context. */
+    function renderRowDiff(item) {
+      const parts = BP.util.diffParts(item.before, item.after);
+      // Trimming to the changed part helps a substitution, but a pure
+      // insertion would come out as a stray letter, so show it whole.
+      const trim = Boolean(parts.removed) && Boolean(parts.added);
+      const removed = trim ? parts.removed : item.before;
+      const added = trim ? parts.added : item.after;
+      return (removed ? '<del>' + escape(removed) + '</del>' : '') +
+        (added ? '<ins>' + escape(added) + '</ins>' : '');
+    }
+
+    function renderRow(item, active) {
+      const label = BP.CATEGORY_LABELS[item.category] || item.category;
+      const meta = item.reason ? label + ' · ' + item.reason : label;
+      return '<div class="row' + (active ? ' active' : '') + '" data-act="focus" data-sid="' + item.id + '">' +
+        '<span class="dot ' + editClass(item) + '"></span>' +
+        '<div class="rowbody">' +
+          '<div class="rowdiff">' + renderRowDiff(item) + '</div>' +
+          '<div class="rowmeta">' + escape(meta) + '</div>' +
+        '</div>' +
+        '<div class="rowacts">' +
+          '<button class="iconbtn ok" data-act="apply" data-sid="' + item.id + '" title="Accept">&#10003;</button>' +
+          '<button class="iconbtn no" data-act="dismiss" data-sid="' + item.id + '" title="Ignore">&#10005;</button>' +
+        '</div>' +
+      '</div>';
     }
 
     return {
@@ -338,28 +441,58 @@
 
       buttonRect: function () { return fab.getBoundingClientRect(); },
 
-      showSuggestion: function (suggestion, index, total, anchorRect) {
-        const isCorrection = BP.CORRECTION_CATEGORIES.indexOf(suggestion.category) !== -1;
-        const label = BP.CATEGORY_LABELS[suggestion.category] || suggestion.category;
+      /* The sentence under review: its full text, with every change the model
+         proposed shown where it belongs, and one row per change to act on. */
+      showSentence: function (view, anchorRect) {
+        const items = view.group.items;
+
+        // Typing re-opens the card on every keystroke; only redraw when what
+        // it shows has actually changed, so it does not flicker under you.
+        const signature = [
+          view.group.start, view.group.end, view.focusId, view.index, view.total,
+          items.map(function (item) { return item.id; }).join(','),
+          view.text.slice(view.group.start, view.group.end)
+        ].join('|');
+        if (panelKind === 'suggestion' && signature === sentenceSignature) return;
+        sentenceSignature = signature;
+
+        const focused = items.find(function (s) { return s.id === view.focusId; }) || items[0];
+        const multiple = items.length > 1;
+        const isCorrection = BP.CORRECTION_CATEGORIES.indexOf(focused.category) !== -1;
+        const chip = multiple
+          ? '<span class="chip">' + items.length + ' changes</span>'
+          : '<span class="chip ' + (isCorrection ? 'correct' : 'improve') + '">' +
+            escape(BP.CATEGORY_LABELS[focused.category] || focused.category) + '</span>';
+        const counter = view.total > 1
+          ? 'Sentence ' + (view.index + 1) + ' of ' + view.total
+          : '';
+
         const html =
           '<div class="card">' +
             '<div class="head">' +
-              '<span class="chip ' + (isCorrection ? 'correct' : 'improve') + '">' + escape(label) + '</span>' +
-              (total > 1 ? '<span class="counter">' + (index + 1) + ' of ' + total + '</span>' : '<span class="counter"></span>') +
+              chip +
+              '<span class="counter">' + counter + '</span>' +
               '<button class="iconbtn" data-act="close" title="Close">&#10005;</button>' +
             '</div>' +
-            '<div class="diff">' + renderDiff(suggestion) + '</div>' +
-            (suggestion.reason ? '<div class="reason">' + escape(suggestion.reason) + '</div>' : '') +
+            '<div class="sentence">' + renderSentence(view) + '</div>' +
+            (multiple
+              ? '<div class="rows">' + items.map(function (item) {
+                  return renderRow(item, item.id === view.focusId);
+                }).join('') + '</div>'
+              : (focused.reason ? '<div class="reason">' + escape(focused.reason) + '</div>' : '')) +
             '<div class="foot">' +
-              '<button class="btn primary" data-act="apply">Apply</button>' +
-              '<button class="btn" data-act="dismiss">Ignore</button>' +
+              (multiple
+                ? '<button class="btn primary" data-act="apply-all">Accept all ' + items.length + '</button>' +
+                  '<button class="btn" data-act="dismiss-all">Ignore all</button>'
+                : '<button class="btn primary" data-act="apply" data-sid="' + focused.id + '">Accept</button>' +
+                  '<button class="btn" data-act="dismiss" data-sid="' + focused.id + '">Ignore</button>') +
               '<span class="spacer"></span>' +
-              (total > 1 ? '<button class="btn ghost" data-act="prev" title="Previous">&#8249;</button>' +
-                           '<button class="btn ghost" data-act="next" title="Next">&#8250;</button>' : '') +
+              (view.total > 1 ? '<button class="btn ghost" data-act="prev" title="Previous sentence">&#8249;</button>' +
+                                '<button class="btn ghost" data-act="next" title="Next sentence">&#8250;</button>' : '') +
               '<button class="btn ghost" data-act="menu" title="More">&#8943;</button>' +
             '</div>' +
           '</div>';
-        showPanel('suggestion', html, anchorRect);
+        showPanel('suggestion', html, anchorRect, true);
       },
 
       showMenu: function (anchorRect, options) {
