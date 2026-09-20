@@ -96,7 +96,9 @@ OLLAMA_ORIGINS="chrome-extension://*" ollama serve
 - Anything inside `[data-blue-pencil="off"]`, and it honours Grammarly's
   `[data-gramm="false"]` opt-out too.
 - Sites on your off-list, which you can add from the field menu ("Turn off on …")
-  or the settings page.
+  or the settings page. Nothing shows on the page there — not even the pencil
+  badge — so take a site off the list from the toolbar popup or the settings
+  page when you want it back.
 
 ## Settings worth knowing
 

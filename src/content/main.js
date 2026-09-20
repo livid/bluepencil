@@ -95,7 +95,8 @@
     }
 
     const rect = active.adapter.el.getBoundingClientRect();
-    const visible = settings.showButton &&
+    // Turned off here means out of the way entirely: no badge on the field.
+    const visible = settings.showButton && enabledHere() &&
       rect.width > 4 && rect.height > 4 &&
       rect.bottom > 0 && rect.right > 0 &&
       rect.top < window.innerHeight && rect.left < window.innerWidth;
@@ -773,6 +774,8 @@
       if (!enabledHere()) {
         active.status = 'off';
         clearSuggestions();
+        // Switched off elsewhere: take any card or menu down with the badge.
+        if (ui && ui.panelKind()) ui.hidePanel();
       } else if (active.status === 'off') {
         active.status = 'idle';
         active.lastCheckedText = null;
@@ -857,8 +860,9 @@
     });
 
     BP.getSettings().then(function (loaded) {
-      settings = loaded;
-      cancelCheck();
+      // A field focused before storage answered is running on the defaults;
+      // put it back in step, which on an off site takes the badge away.
+      applySettings(loaded);
       const focused = document.activeElement;
       if (focused && focused !== document.body) attach(focused);
     });

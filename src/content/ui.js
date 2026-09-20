@@ -55,7 +55,6 @@
   .fab.state-improve { background: var(--accent); color: #fff; border-color: transparent; }
   .fab.state-clean { color: var(--ok); }
   .fab.state-error { background: #f6a609; color: #201500; border-color: transparent; }
-  .fab.state-off { color: var(--muted); opacity: .65; }
   .fab .count { font-size: 11px; line-height: 1; }
   .fab .spinner {
     width: 11px; height: 11px; border-radius: 999px;
@@ -417,8 +416,6 @@
           title = state.title || 'Blue Pencil could not reach Ollama';
         } else if (state.state === 'clean') {
           title = 'No issues found';
-        } else if (state.state === 'off') {
-          title = 'Blue Pencil is off here';
         }
 
         fab.className = cls;
